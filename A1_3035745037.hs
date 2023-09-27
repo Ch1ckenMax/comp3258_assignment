@@ -36,10 +36,10 @@ isTwinPaired xs = isSorted evenElements && isSorted oddElements
                  isSorted ys  = and [x <= y | (x,y) <- zip ys (tail ys)]
 
 -- Problem 4
-isMatrian :: [Int] -> Bool
-isMatrian []  = False
-isMatrian [x] = x == 1
-isMatrian xs = numberOfOnes > numberOfTwos && not hasAdjacentElems
+isMartian :: [Int] -> Bool
+isMartian []  = False
+isMartian [x] = x == 1
+isMartian xs = numberOfOnes > numberOfTwos && not hasAdjacentElems
     where
         numberOfOnes      = length [x | x <- xs, x == 1]
         numberOfTwos      = length [x | x <- xs, x == 2]
