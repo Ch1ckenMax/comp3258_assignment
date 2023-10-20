@@ -1,4 +1,3 @@
-import Text.XHtml (p)
 -- Question 0 Propositional Logic
 
 type Name = String
@@ -98,3 +97,46 @@ toDNF (p1 :|: p2)  = toDNF p1 ++ toDNF p2
 toDNF (p1 :&: p2)  = [p1Clause ++ p2Clause | p1Clause <- toDNF p1, p2Clause <- toDNF p2]
 toDNF (p1 :->: p2) = toDNF (Not p1) ++ toDNF p2
 toDNF (p1 :<->: p2) = toDNF (p1 :&: p2) ++ toDNF (Not p1 :&: Not p2)
+
+
+-- Question 1 Heap Sort
+
+data Tree a = Leaf
+            | Branch a (Tree a) (Tree a)
+     deriving (Show, Eq)
+
+flatten :: Ord a => Tree a -> [a]
+flatten Leaf           = []
+flatten (Branch x l r) = x : merge (flatten l) (flatten r)
+
+merge :: Ord a => [a] -> [a] -> [a]
+merge [] ys                     = ys
+merge xs []                     = xs
+merge (x:xs) (y:ys) | x <= y    = x : merge xs (y:ys)
+                    | otherwise = y : merge (x:xs) ys
+
+buildHeap :: Ord a => [a] -> Tree a
+buildHeap = heapify . buildTree
+
+buildTree :: Ord a => [a] -> Tree a
+buildTree []     = Leaf
+buildTree (x:xs) = Branch x (buildTree leftList) (buildTree rightList)
+               where
+                 (leftList, rightList) = splitAt (length xs `div` 2) xs 
+
+heapify :: Ord a => Tree a -> Tree a
+heapify Leaf           = Leaf
+heapify (Branch x l r) = siftDown x (heapify l) (heapify r)
+
+siftDown :: Ord a => a -> Tree a -> Tree a -> Tree a
+siftDown x Leaf Leaf                                              = Branch x Leaf Leaf
+siftDown x Leaf (Branch x' t1 t2) | x > x'                        = Branch x' Leaf (siftDown x t1 t2)
+                                  | otherwise                     = Branch x Leaf (Branch x' t1 t2)
+siftDown x (Branch x' t1 t2) Leaf | x > x'                        = Branch x' (siftDown x t1 t2) Leaf
+                                  | otherwise                     = Branch x (Branch x' t1 t2) Leaf
+siftDown x (Branch x1 t1 t2) (Branch x2 t3 t4) | x < x1 && x < x2 = Branch x (Branch x1 t1 t2) (Branch x2 t3 t4) 
+                                               | x1 < x2          = Branch x1 (siftDown x t1 t2) (Branch x2 t3 t4)
+                                               | x1 >= x2         = Branch x2 (Branch x1 t1 t2) (siftDown x t3 t4)
+                                  
+heapSort :: Ord a => [a] -> [a]
+heapSort = flatten . buildHeap
