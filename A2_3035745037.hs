@@ -140,3 +140,69 @@ siftDown x (Branch x1 t1 t2) (Branch x2 t3 t4) | x < x1 && x < x2 = Branch x (Br
                                   
 heapSort :: Ord a => [a] -> [a]
 heapSort = flatten . buildHeap
+
+
+-- Question 2 Virtual Machine
+
+data Value = Numeric Int
+            | Wrong
+        deriving (Eq, Show, Read)
+
+type Trace a = [Event a]
+data Event a = Output a
+             | End
+             | Crash
+             | Tick
+        deriving (Eq, Show)
+
+data Instruction = Push Value
+                 | Pop
+                 | Fetch Int
+                 | Store Int
+                 | Display
+                 | Halt
+                 | Jump Int
+            deriving (Eq, Show, Read)
+
+exec :: [Instruction] -> Trace Value
+exec instrs = snd (run instrs 0 [])
+
+execDebug :: [Instruction] -> ([Value], Trace Value)
+execDebug instrs = run instrs 0 []
+
+run :: [Instruction] -> Int -> [Value] -> ([Value], Trace Value)
+run pg pc st
+    | pc < 0 || length pg <= pc = (st, [Crash])
+    | pg !! pc == Halt          = (st, [End])
+    | otherwise                 = let (pc', st', tr') = step pg pc st
+                                      (st'', tr'') = run pg pc' st'
+                                  in (st'', tr' +++ tr'')
+
+-- Problem 4
+-- Given two traces, if we just concat two traces together like concatening lists, the End or Crash event of the first trace will appear in the middle of the concatened list, so the invariant is broken.
+
+(+++) :: Trace a -> Trace a -> Trace a
+s +++ t = case last s of
+    End      -> init s ++ t -- Since trace s has been terminated normally, we run on into the trace t
+    Crash    -> s           -- Since trace s has been terminated abnormally, we throw away the trace t
+    _        -> error "The first trace does not end with End or Crash"
+
+-- Problem 5 to Problem 8
+replace :: Int -> a -> [a] -> [a]
+replace n x xs | n < 0 || length xs <= n = error "Invalid replace index"
+               | otherwise               = take n xs ++ [x] ++ drop (n + 1) xs
+
+step :: [Instruction] -> Int -> [Value] -> (Int, [Value], Trace Value)
+step pg pc st =
+    case (pg !! pc, st) of
+        (Push x , stack)      -> (pc', x : stack, [End])
+        (Pop , _ : stack)     -> (pc', stack, [End])
+        (Fetch n , stack)
+          | length stack > n  -> (pc', stack !! n : stack, [End])
+        (Store n , x : stack)
+          | length stack > n  -> (pc', replace n x stack, [End])
+        (Display , i : stack) -> (pc', stack, [Output i, End])
+        (Jump k, stack)       -> if k >= 0 then (pc' + k, stack, [End]) else (pc' + k, stack, [Tick, End])
+        (_ , stack)           -> (pc', stack, [Crash])
+      where
+        pc' = pc + 1
