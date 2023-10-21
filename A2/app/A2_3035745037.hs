@@ -1,3 +1,12 @@
+module A2_3035745037 (module A2_3035745037) where
+
+import Data.Array (Array, (//), (!))
+import Data.Ix (Ix, rangeSize) -- index
+import qualified Data.Array as A
+import System.Random
+import System.Random.Shuffle
+import Data.List
+
 -- Question 0 Propositional Logic
 
 type Name = String
@@ -137,6 +146,7 @@ siftDown x (Branch x' t1 t2) Leaf | x > x'                        = Branch x' (s
 siftDown x (Branch x1 t1 t2) (Branch x2 t3 t4) | x < x1 && x < x2 = Branch x (Branch x1 t1 t2) (Branch x2 t3 t4) 
                                                | x1 < x2          = Branch x1 (siftDown x t1 t2) (Branch x2 t3 t4)
                                                | x1 >= x2         = Branch x2 (Branch x1 t1 t2) (siftDown x t3 t4)
+siftDown _ _ _                                                    = error "error sifting down"
                                   
 heapSort :: Ord a => [a] -> [a]
 heapSort = flatten . buildHeap
@@ -209,5 +219,156 @@ step pg pc st =
 
 
 -- Question 3 Battleship Game
+type BCoord = (Char, Int)
 
+data Cell = Empty 
+          | Occupied ShipType
+        deriving (Eq, Show)
+
+data ShipType = Destroyer 
+              | Submarine 
+              | Cruiser 
+              | Battleship 
+              | Carrier
+            deriving (Eq, Show)
+
+data BattleshipInput = BattleshipInput
+  { destroyerCoords :: (BCoord, BCoord)
+  , submarineCoords :: (BCoord, BCoord, BCoord)
+  , cruiserCoords :: (BCoord, BCoord, BCoord)
+  , battleshipCoords :: (BCoord, BCoord, BCoord, BCoord)
+  , carrierCoords :: (BCoord, BCoord, BCoord, BCoord, BCoord)
+  }
+
+data GameResult = Player1Wins | Player2Wins | NoResult
+  deriving (Show, Eq)
+
+-- A 2D array of cells that represents a board
+type Board = Array Char (Array Int Cell)
+
+emptyBoard :: Board
+emptyBoard = A.listArray ('A','J') $ replicate 10 emptyRow
+  where 
+    emptyRow = A.listArray (1,10) $ replicate 10 Empty
+  
+-- A function that replaces a cell in the 2D array and returns the new 2D array
+updateCell :: Cell -> BCoord -> Board -> Board
+updateCell cell (col, row) board = board // [(col, updatedRow)]
+  where
+    updatedRow = board ! col // [(row, cell)]
+
+-- Functions to insert ships to a board
+-- I know the following code hurts your brain and there must be a better design pattern for this, but I have no idea bruh
+insertDestroyer :: (BattleshipInput, Board) -> (BattleshipInput, Board)
+insertDestroyer (battleshipInput, board) =
+    case destroyerCoords battleshipInput of
+      (coord1, coord2) -> (battleshipInput, update coord2 $ update coord1 board)
+    where
+      update = updateCell (Occupied Destroyer)
+
+insertSubmarine :: (BattleshipInput, Board) -> (BattleshipInput, Board)
+insertSubmarine (battleshipInput, board) =
+    case submarineCoords battleshipInput of
+      (coord1, coord2, coord3) -> (battleshipInput, update coord3 $ update coord2 $ update coord1 board)
+    where
+      update = updateCell (Occupied Submarine)
+
+insertCruiser :: (BattleshipInput, Board) -> (BattleshipInput, Board)
+insertCruiser (battleshipInput, board) =
+    case cruiserCoords battleshipInput of
+      (coord1, coord2, coord3) -> (battleshipInput, update coord3 $ update coord2 $ update coord1 board)
+    where
+      update = updateCell (Occupied Cruiser)
+
+insertBattleship :: (BattleshipInput, Board) -> (BattleshipInput, Board)
+insertBattleship (battleshipInput, board) =
+    case battleshipCoords battleshipInput of
+      (coord1, coord2, coord3, coord4) -> (battleshipInput, update coord4 $ update coord3 $ update coord2 $ update coord1 board)
+    where
+      update = updateCell (Occupied Battleship)
+
+insertCarrier :: (BattleshipInput, Board) -> (BattleshipInput, Board)
+insertCarrier (battleshipInput, board) =
+    case carrierCoords battleshipInput of
+      (coord1, coord2, coord3, coord4, coord5) -> (battleshipInput, update coord5 $ update coord4 $ update coord3 $ update coord2 $ update coord1 board)
+    where
+      update = updateCell (Occupied Carrier)
+
+insertShips :: BattleshipInput -> Board -> Board
+insertShips battleships board = snd $ (insertDestroyer . insertSubmarine . insertCruiser . insertBattleship . insertCarrier) (battleships, board)
+
+-- Check if the board is empty (It can be used to check if a player has lost the game)
+boardIsEmpty :: Board -> Bool
+boardIsEmpty board = and $ map (== Empty) [cell | row <- A.elems board, cell <- A.elems row]
+
+-- Given the board of both players, determine whether a player has lost the game
+checkResult :: Board -> Board -> GameResult
+checkResult playerOneBoard playerTwoBoard | not playerOneLose && not playerTwoLose = NoResult
+                                          | not playerOneLose && playerTwoLose     = Player1Wins
+                                          | playerOneLose && not playerTwoLose     = Player2Wins
+                                          | otherwise                              = error "Both players lost all their ships. This is not supposed to happen!"
+                                          where
+                                            playerOneLose = boardIsEmpty playerOneBoard
+                                            playerTwoLose = boardIsEmpty playerTwoBoard
+
+-- This data type Player decides which one is playing the current round
+data Player = PlayerOne | PlayerTwo
+
+playBattleship :: BattleshipInput -> BattleshipInput -> ([BCoord], [BCoord]) -> GameResult
+playBattleship player1Ships player2Ships (player1Guesses, player2Guesses) = playRounds (player1Guesses, player2Guesses) player1Board player2Board firstRoundPlayer
+  where
+    player1Board = insertShips player1Ships emptyBoard
+    player2Board = insertShips player2Ships emptyBoard
+    firstRoundPlayer = if length player1Guesses >= length player2Guesses then PlayerOne else PlayerTwo
+
+destroy :: BCoord -> Board -> Board
+destroy = updateCell Empty
+
+playRounds :: ([BCoord], [BCoord]) -> Board -> Board -> Player -> GameResult
+playRounds ([],[]) p1board p2board _                             = checkResult p1board p2board
+playRounds ((p1move:p1moves), p2moves) p1board p2board PlayerOne = let p2board' = destroy p1move p2board in
+                                                                     case checkResult p1board p2board' of
+                                                                       NoResult -> playRounds (p1moves,p2moves) p1board p2board' PlayerTwo
+                                                                       result   -> result
+playRounds (p1moves, (p2move:p2moves)) p1board p2board PlayerTwo = let p1board' = destroy p2move p1board in
+                                                                     case checkResult p1board' p2board of
+                                                                       NoResult -> playRounds (p1moves,p2moves) p1board' p2board PlayerOne
+                                                                       result   -> result
+playRounds (p1moves, p2moves) p1board p2board _                                   = error ("absurd round!" ++ show p1moves ++ " AAAAA " ++ show p2moves)
+
+-- Test
+baseCoords :: [BCoord]
+baseCoords = [(col, row) | col <- ['A'..'J'], row <- [1..10]]
+
+battleship11 :: BattleshipInput
+battleship11 = BattleshipInput
+  (('A', 1), ('B', 1))
+  (('D', 1), ('D', 2), ('D', 3))
+  (('F', 3), ('G', 3), ('H', 3))
+  (('A', 3), ('A', 4), ('A', 5), ('A', 6))
+  (('E', 10), ('F', 10), ('G', 10), ('H', 10), ('I', 10))
+
+battleship12 :: BattleshipInput
+battleship12 = BattleshipInput
+  (('F', 6), ('F', 7))
+  (('J', 6), ('J', 7), ('J', 8))
+  (('B', 9), ('C', 9), ('D', 9))
+  (('G', 1), ('H', 1), ('I', 1), ('J', 1))
+  (('C', 3), ('C', 4), ('C', 5), ('C', 6), ('C', 7))
+
+moves1 :: ([BCoord], [BCoord])
+moves1 = (willGetP2, cantGetP1)
+  where
+    shuffled1 = shuffle' baseCoords 100 (mkStdGen 100)
+    cantGetP1 = delete ('A', 1) shuffled1 ++ [('A', 1)]
+    shuffled2 = shuffle' baseCoords 100 (mkStdGen 101)
+    willGetP2 = delete ('A', 1) shuffled2 ++ [('A', 1)]
+
+moves2 :: ([BCoord], [BCoord])
+moves2 = (cantGetP2, willGetP1)
+  where
+    shuffled1 = shuffle' baseCoords 100 (mkStdGen 102)
+    cantGetP2 = delete ('B', 9) shuffled1 ++ [('B', 9)]
+    shuffled2 = shuffle' baseCoords 100 (mkStdGen 103)
+    willGetP1 = delete ('B', 9) shuffled2 ++ [('B', 9)]
 
