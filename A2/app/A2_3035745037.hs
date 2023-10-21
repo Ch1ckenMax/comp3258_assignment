@@ -299,7 +299,7 @@ insertShips battleships board = snd $ (insertDestroyer . insertSubmarine . inser
 
 -- Check if the board is empty (It can be used to check if a player has lost the game)
 boardIsEmpty :: Board -> Bool
-boardIsEmpty board = and $ map (== Empty) [cell | row <- A.elems board, cell <- A.elems row]
+boardIsEmpty board = all (== Empty) [cell | row <- A.elems board, cell <- A.elems row]
 
 -- Given the board of both players, determine whether a player has lost the game
 checkResult :: Board -> Board -> GameResult
@@ -315,26 +315,25 @@ checkResult playerOneBoard playerTwoBoard | not playerOneLose && not playerTwoLo
 data Player = PlayerOne | PlayerTwo
 
 playBattleship :: BattleshipInput -> BattleshipInput -> ([BCoord], [BCoord]) -> GameResult
-playBattleship player1Ships player2Ships (player1Guesses, player2Guesses) = playRounds (player1Guesses, player2Guesses) player1Board player2Board firstRoundPlayer
+playBattleship player1Ships player2Ships (player1Guesses, player2Guesses) = playRounds (player1Guesses, player2Guesses) player1Board player2Board PlayerOne
   where
     player1Board = insertShips player1Ships emptyBoard
     player2Board = insertShips player2Ships emptyBoard
-    firstRoundPlayer = if length player1Guesses >= length player2Guesses then PlayerOne else PlayerTwo
 
 destroy :: BCoord -> Board -> Board
 destroy = updateCell Empty
 
 playRounds :: ([BCoord], [BCoord]) -> Board -> Board -> Player -> GameResult
 playRounds ([],[]) p1board p2board _                             = checkResult p1board p2board
-playRounds ((p1move:p1moves), p2moves) p1board p2board PlayerOne = let p2board' = destroy p1move p2board in
+playRounds (p1move:p1moves, p2moves) p1board p2board PlayerOne = let p2board' = destroy p1move p2board in
                                                                      case checkResult p1board p2board' of
                                                                        NoResult -> playRounds (p1moves,p2moves) p1board p2board' PlayerTwo
                                                                        result   -> result
-playRounds (p1moves, (p2move:p2moves)) p1board p2board PlayerTwo = let p1board' = destroy p2move p1board in
+playRounds (p1moves, p2move:p2moves) p1board p2board PlayerTwo = let p1board' = destroy p2move p1board in
                                                                      case checkResult p1board' p2board of
                                                                        NoResult -> playRounds (p1moves,p2moves) p1board' p2board PlayerOne
                                                                        result   -> result
-playRounds (p1moves, p2moves) p1board p2board _                                   = error ("absurd round!" ++ show p1moves ++ " AAAAA " ++ show p2moves)
+playRounds _ _ _ _                                             = error "absurd round!"
 
 -- Test
 baseCoords :: [BCoord]
