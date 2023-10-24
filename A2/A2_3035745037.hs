@@ -1,11 +1,6 @@
-module A2_3035745037 (module A2_3035745037) where
-
 import Data.Array (Array, (//), (!))
 import Data.Ix (Ix, rangeSize) -- index
 import qualified Data.Array as A
-import System.Random
-import System.Random.Shuffle
-import Data.List
 
 -- Question 0 Propositional Logic
 
@@ -329,40 +324,3 @@ playRounds (p1moves, p2move:p2moves) p1board p2board PlayerTwo = let p1board' = 
                                                                        NoResult -> playRounds (p1moves,p2moves) p1board' p2board PlayerOne
                                                                        result   -> result
 playRounds _ _ _ _                                             = error "absurd round!"
-
--- Test
-baseCoords :: [BCoord]
-baseCoords = [(col, row) | col <- ['A'..'J'], row <- [1..10]]
-
-battleship11 :: BattleshipInput
-battleship11 = BattleshipInput
-  (('A', 1), ('B', 1))
-  (('D', 1), ('D', 2), ('D', 3))
-  (('F', 3), ('G', 3), ('H', 3))
-  (('A', 3), ('A', 4), ('A', 5), ('A', 6))
-  (('E', 10), ('F', 10), ('G', 10), ('H', 10), ('I', 10))
-
-battleship12 :: BattleshipInput
-battleship12 = BattleshipInput
-  (('F', 6), ('F', 7))
-  (('J', 6), ('J', 7), ('J', 8))
-  (('B', 9), ('C', 9), ('D', 9))
-  (('G', 1), ('H', 1), ('I', 1), ('J', 1))
-  (('C', 3), ('C', 4), ('C', 5), ('C', 6), ('C', 7))
-
-moves1 :: ([BCoord], [BCoord])
-moves1 = (willGetP2, cantGetP1)
-  where
-    shuffled1 = shuffle' baseCoords 100 (mkStdGen 100)
-    cantGetP1 = delete ('A', 1) shuffled1 ++ [('A', 1)]
-    shuffled2 = shuffle' baseCoords 100 (mkStdGen 101)
-    willGetP2 = delete ('A', 1) shuffled2 ++ [('A', 1)]
-
-moves2 :: ([BCoord], [BCoord])
-moves2 = (cantGetP2, willGetP1)
-  where
-    shuffled1 = shuffle' baseCoords 100 (mkStdGen 102)
-    cantGetP2 = delete ('B', 9) shuffled1 ++ [('B', 9)]
-    shuffled2 = shuffle' baseCoords 100 (mkStdGen 103)
-    willGetP1 = delete ('B', 9) shuffled2 ++ [('B', 9)]
-
