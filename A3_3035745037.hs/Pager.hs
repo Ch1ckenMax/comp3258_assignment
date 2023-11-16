@@ -58,8 +58,7 @@ wordWrap lineLength lineText = if length lineText <= lineLength then
 
 -- Given a list of strings, paginate each files and return a list of lists of strings (where each element of the list corresponds to one file)
 paginateFiles :: ScreenDimensions -> [String] -> [[String]]
-paginateFiles scrdim []     = []
-paginateFiles scrdim (f:fs) = paginate scrdim f:paginateFiles scrdim fs
+paginateFiles scrdim fs = [paginate scrdim f | f <- fs]
 
 paginate :: ScreenDimensions -> String -> [String]
 paginate (ScreenDimensions rows cols) text = foldr aux [] lines
@@ -77,18 +76,21 @@ showPages fileNames rowsOnScreen fileLines = do hSetBuffering stdin NoBuffering
     totalFiles = length fileNames
     showPage :: Int -> Int -> IO ()
     showPage currentFile currentPage = let -- Get the data of the current file
-                                           lines      = fileLines !! currentFile
-                                           fileName   = fileNames !! currentFile
-                                           totalLines = length lines
-                                           totalPages = totalLines `div` rowsOnScreen + if totalLines `mod` rowsOnScreen == 0 then 0 else 1
-                                           startLine  = if totalPages > 1 && totalPages == currentPage + 1 then totalLines - rowsOnScreen else currentPage * rowsOnScreen
-                                           endLine    = min (startLine + rowsOnScreen) totalLines
-                                           -- Status bar strings
-                                           pageStats  = (" Page:" ++ show (currentPage + 1) ++ "/" ++ show totalPages)
-                                           lineStats  = (" Lines:" ++ show (startLine + 1) ++ "~" ++ show endLine ++ "/" ++ show totalLines) 
-                                           fileStats  = (" Files:" ++ show (currentFile + 1) ++ "/" ++ show totalFiles) in 
+                                          lines      = fileLines !! currentFile
+                                          fileName   = fileNames !! currentFile
+                                          totalLines = length lines
+                                          totalPages = totalLines `div` rowsOnScreen + if totalLines `mod` rowsOnScreen == 0 then 0 else 1
+                                          startLine  = if totalPages > 1 && totalPages == currentPage + 1 then 
+                                                         totalLines - rowsOnScreen 
+                                                       else 
+                                                         currentPage * rowsOnScreen
+                                          endLine    = min (startLine + rowsOnScreen) totalLines
+                                          -- Status bar strings
+                                          pageStats  = (" Page:" ++ show (currentPage + 1) ++ "/" ++ show totalPages)
+                                          lineStats  = (" Lines:" ++ show (startLine + 1) ++ "~" ++ show endLine ++ "/" ++ show totalLines) 
+                                          fileStats  = (" Files:" ++ show (currentFile + 1) ++ "/" ++ show totalFiles) in 
                                        do clearScreen
-                                          printLines lines startLine endLine  
+                                          printLines lines startLine endLine
                                           putStr (fileName ++ pageStats ++ lineStats ++ fileStats)
                                           input <- getChar
                                           case input of 
